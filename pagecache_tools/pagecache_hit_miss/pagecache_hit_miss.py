@@ -21,7 +21,7 @@ class PageCacheHitMiss(object):
         if send_metrics_to_dogstatsd:
             self.dogstatsd_options = {"statsd_host": "127.0.0.1", "statsd_port": 8125}
             initialize(**self.dogstatsd_options)
-            self.dogstatsd_metric_name = "pagecache_ttl.min_cached_time_seconds"
+            self.dogstatsd_metric_name = "pagecache_hit_ratio"
             self.statsd = statsd
 
     def _attach_kprobes_and_tracepoints(self, ebpf):
@@ -53,6 +53,7 @@ class PageCacheHitMiss(object):
             )
 
     def _get_hit_ratio(self, counts):
+        """ """
         mpa = 0
         mbd = 0
         apcl = 0
@@ -87,7 +88,25 @@ class PageCacheHitMiss(object):
         if total > 0:
             ratio = float(hits) / total
 
-        return ratio * 100
+        return round(ratio * 100, 2)
+
+    def _deliver_metrics_to_dogstatsd(self, hit_ratio):
+        """
+        Sends metrics to DogStatsD (localhost)
+        """
+        self.statsd.gauge(self.dogstatsd_metric_name, hit_ratio)
+        logger.debug(
+            "Delivered metric to DogStatsD: {}:{}".format(
+                self.dogstatsd_metric_name, hit_ratio
+            )
+        )
+
+    def _report_metric(self, hit_ratio):
+        if self.send_metrics_to_dogstatsd:
+            self._deliver_metrics_to_dogstatsd(hit_ratio)
+        else:
+            print({self.dogstatsd_metric_name: hit_ratio})
+        logger.info("Current pagecache hit ratio: {}% ".format(hit_ratio))
 
     def run(self):
         """
@@ -103,6 +122,8 @@ class PageCacheHitMiss(object):
 
             hit_ratio = self._get_hit_ratio(counts)
             counts.clear()
+
+            self._report_metric(hit_ratio)
             print(hit_ratio)
 
 
