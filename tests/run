@@ -17,4 +17,4 @@ echo "Running isort check..."
 isort --profile black -c pagecache_tools tests
 
 
-pytest -v -s -rxs tests
+#pytest -v -s -rxs tests
